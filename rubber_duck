@@ -1,0 +1,24 @@
+'''
+First, train it to learn from a single player, mimic his steps or prevent making those mistakes
+Then, extend it to learn from random moves
+
+To train from player, in the first iteration:
+    give first move to user
+    generate random actions
+    let user use his brain
+    compute reward, based on bot's win/loss
+    map each move to the distributed reward
+    this way the bot will know which moves to repeat and which to not
+The second iteration onwards:
+    give first move to user
+    if similar move, then retrieve best action from existing step_scores
+        for best action, if there is positive score, use highest scoring move, elif there are all negative scores, generate random move
+        not equivalent to any negative move
+    if new move, generate random move
+        map new move to step_scores
+    compute reward, distribute it again
+To map unseen moves after a game:
+    always map like [player_move -> bot move] : reward
+WE NEED THE BOT TO SPATIALLY UNDERSTAND THE GAME, ESP. THE RULE OF THREE IN A LINE, THIS WILL HELP IT TO FOIL THE PLAYERS MOVES AS WELL AS GUESS MOST LIKELY MOVES
+IF BOT HAS TWO (O)S IN ONE LINE, AND THE THIRD BOX IS EMPTY ALREADY, PUT THE (O) IN THE EMPTY BOX IMMEDIATELY TO SCORE A WIN, I HOPE THE BOT WILL LEARN THIS OVER TIME, BUT THE BOT LOOKS TOO DUMB IF IT CAN'T DO IT ALREADY
+'''

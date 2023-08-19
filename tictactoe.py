@@ -9,7 +9,6 @@ Created on Mon Aug 14 01:27:02 2023
 import numpy as np
 import pickle
 import os
-from tqdm import tqdm
 from copy import deepcopy
 
 class Board():
@@ -86,8 +85,6 @@ class Board():
         return valid_moves
 
 class Agent():
-    # 9! = 362880, we need atmost these many entries in the state_paths
-    # TODO: Find a mapping between current state and next state and compute average reward per step
     '''
     First iterate through the total number of paths and compute reward.
     Distribute reward to each step of path. Now each step in a path must have a distributed reward score
@@ -98,16 +95,43 @@ class Agent():
     def convert_state_path_on_the_go(self, path):
         steps, reward = path[0], path[1]
         for i in range(len(steps)//2):
-            move = [tuple(steps[2*i].flatten()), tuple(steps[2*i+1].flatten()), reward]
-            if move[:-1] not in [m[:-1] for m in self.step_scores]:
+            move = [tuple(steps[2*i].flatten()), tuple(steps[2*i+1].flatten()), reward, 1]
+            if move[:-2] not in [m[:-2] for m in self.step_scores]:
                 self.step_scores.append(move)   # Structure of move is [current, next, reward]
             else:
-                pass
-                # ADD SOME CODE TO AVERAGE REWARDS IF SAME MOVE GETS DIFFERENT REWARDS
-                idx = [m[:-1] for m in self.step_scores].index(move[:-1])
-                self.step_scores.append([move[0], move[1], (move[2]+self.step_scores[idx][2])/2])
-                # FIXME: CHECK IF THIS CODE WORKS
+                # LATEST UPDATE: AVERAGING BY 2 REDUCES THE WEIGHTS OF OLDER MOVES, KEEP A PROVISION TO AVERAGE REWARDS WITH WEIGHTS. E.G. THE THIRD ENTRY FOR SAME REWARD WILL BECOME (2*(OLD)+1*NEW)/3
+                idx = [m[:-2] for m in self.step_scores].index(move[:-2])
+                self.step_scores.append([move[0], move[1], (move[2]*1+self.step_scores[idx][2]*self.step_scores[idx][3])/(1+self.step_scores[idx][3]), 1+self.step_scores[idx][3]])
+                # POP OLDER ENTRY
+                self.step_scores.pop(idx)
     def recommend_best_action(self, base_mat, board):
+        # TODO: ALSO KEEP A PROVISION TO CHECK IF PLAYER IS COOKING A MOVE, PREVENT PLAYER FROM GETTING 3(X) IN A LINE
+        # TODO: CHECK FOR CONTINUOUS (X)S OR (O)S, IF O, FOIL THE NEXT EMPTY BOX, IF X, FILL NEXT EMPTY BOX IF AVAILABLE
+        # DONE: ALSO CHECK FOR SAME MARKS IN OPPOSITE CORNERS
+        for i in range(3):
+            for j in range(3):
+                # checking opposite corners
+                if base_mat[i, j]:
+                    if base_mat[i, j] == base_mat[2-i, 2-j]:
+                        if base_mat[1, 1] == 0:
+                            # move can be made, recommend best action as 4
+                            print('return 1 invoked')
+                            return 4
+                    # check adjacent corners
+                    # row-wise
+                    if base_mat[i, j] == base_mat[i, 2-j]:
+                        if base_mat[i, 1] == 0:
+                            print('return 2 invoked')
+                            return 3*i+1
+                    # column-wise
+                    if base_mat[i, j] == base_mat[2-i, j]:
+                        if base_mat[1, j] == 0:
+                            print('return 3 invoked')
+                            return 3+j
+
+        # now check for adjacent entries, this will be tedious
+
+
         max_reward = 0
         best_config = None
         flag = 1
@@ -128,18 +152,22 @@ class Agent():
                     if move[2] < 0:
                         # DON'T DO THIS MOVE
                         dont_take_this_no.append(np.argmax(np.array(list(move[1])) - np.array(base_mat.flatten())))
+            print('return 4 invoked')
             best_action = np.random.choice([i for i in board.valid_moves() if i not in dont_take_this_no])
         else:
+            print('return 5 invoked')
             best_action = np.argmax(np.array(list(best_config)) - np.array(base_mat.flatten()))
         if flag:
+            # Unseen move
             return None
         else:
             return best_action
 
-def learn_from_player(agent, board):
-    board.reset()
-    state_path = []
-    while board.result == 0:
+# TODO: WE NEED THE BOT TO SPATIALLY UNDERSTAND THE GAME, ESP. THE RULE OF THREE IN A LINE, THIS WILL HELP IT TO FOIL THE PLAYERS MOVES AS WELL AS GUESS MOST LIKELY MOVES
+# TODO: IF BOT HAS TWO (O)S IN ONE LINE, AND THE THIRD BOX IS EMPTY ALREADY, PUT THE (O) IN THE EMPTY BOX IMMEDIATELY TO SCORE A WIN, I HOPE THE BOT WILL LEARN THIS OVER TIME, BUT THE BOT LOOKS TOO DUMB IF IT CAN'T DO IT ALREADY
+
+def play_a_turn(board, agent, state_path, player=True):
+    if player:
         board.display_board()
         print("Your turn!")
         valid_moves = board.valid_moves()
@@ -147,12 +175,7 @@ def learn_from_player(agent, board):
         your_action = int(input("Enter your move (0-8): "))
         board.step(your_action)
 
-        state_path.append(deepcopy(board.base_mat))
-
-        if board.result != 0:
-            board.display_board()
-            break
-
+    else:
         # Bot's turn
         board.display_board()
         print("Bot's turn!")
@@ -161,10 +184,25 @@ def learn_from_player(agent, board):
             bot_action = np.random.choice(board.valid_moves())
         else:
             bot_action = agent.recommend_best_action(deepcopy(board.base_mat), board)
-
         board.step(bot_action)
 
-        state_path.append(deepcopy(board.base_mat))
+    state_path.append(deepcopy(board.base_mat))
+
+    return board, state_path
+
+def learn_from_player(agent, board):
+    board.reset()
+    print(f'\n\nNew Game')
+    state_path = []
+    while board.result == 0:
+        board, state_path = play_a_turn(board, agent, state_path, player=True)
+
+        if board.result != 0:
+            board.display_board()
+            break
+
+        # Bot's turn
+        board, state_path = play_a_turn(board, agent, state_path, player=False)
 
         if board.result != 0:
             board.display_board()
@@ -175,18 +213,26 @@ def learn_from_player(agent, board):
     agent.convert_state_path_on_the_go([state_path, board.result])
     return agent
 
+def load_dump_agent(agent=None):
+    if agent == None:
+        # LOAD
+        agent = pickle.load(open('agent.pkl', 'rb')) if os.path.exists('agent.pkl') else Agent()
+        return agent
+    else:
+        # DUMP
+        pickle.dump(agent, open('agent.pkl', 'wb'))
+        return None
+
+
 def start():
     print('You: (X)')
     print('Bot: (O)')
     board = Board()
-    agent = Agent()
-
-    if os.path.exists('./agent.pkl'):
-        agent = pickle.load(open('agent.pkl', 'rb'))
+    agent = load_dump_agent()
 
     for _ in range(10):
         agent = learn_from_player(agent, board)
 
-    pickle.dump(agent, open('agent.pkl', 'wb'))
+    load_dump_agent(agent)
 
 start()
