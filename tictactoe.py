@@ -129,9 +129,6 @@ class Agent():
                             print('return 3 invoked')
                             return 3+j
 
-        # now check for adjacent entries, this will be tedious
-
-
         max_reward = 0
         best_config = None
         flag = 1
@@ -164,7 +161,7 @@ class Agent():
             return best_action
 
 # TODO: WE NEED THE BOT TO SPATIALLY UNDERSTAND THE GAME, ESP. THE RULE OF THREE IN A LINE, THIS WILL HELP IT TO FOIL THE PLAYERS MOVES AS WELL AS GUESS MOST LIKELY MOVES
-# TODO: IF BOT HAS TWO (O)S IN ONE LINE, AND THE THIRD BOX IS EMPTY ALREADY, PUT THE (O) IN THE EMPTY BOX IMMEDIATELY TO SCORE A WIN, I HOPE THE BOT WILL LEARN THIS OVER TIME, BUT THE BOT LOOKS TOO DUMB IF IT CAN'T DO IT ALREADY
+# DONE: IF BOT HAS TWO (O)S IN ONE LINE, AND THE THIRD BOX IS EMPTY ALREADY, PUT THE (O) IN THE EMPTY BOX IMMEDIATELY TO SCORE A WIN, I HOPE THE BOT WILL LEARN THIS OVER TIME, BUT THE BOT LOOKS TOO DUMB IF IT CAN'T DO IT ALREADY
 
 def play_a_turn(board, agent, state_path, player=True):
     if player:
